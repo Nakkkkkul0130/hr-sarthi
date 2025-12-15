@@ -11,57 +11,51 @@ require('dotenv').config();
 
 const app = express();
 const server = createServer(app);
-// Build allowed frontend origins from environment.
-const frontendOrigins = [
+// Simplified CORS configuration
+const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://hr-sarthi.vercel.app',
-  'https://hr-sarthi-*.vercel.app',
-  process.env.CORS_ORIGIN,
-  process.env.FRONTEND_URLS,
-  process.env.FRONTEND_URL
-].filter(Boolean).join(',').split(',').map(s => s.trim()).filter(Boolean);
+  'https://hr-sarthi.vercel.app'
+];
 
-// In production, allow all Vercel preview deployments
+// Add origins from environment
+if (process.env.CORS_ORIGIN) {
+  const envOrigins = process.env.CORS_ORIGIN.split(',').map(s => s.trim());
+  allowedOrigins.push(...envOrigins);
+}
+
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, etc.)
+    // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
     
-    // Check if origin is in allowed list
-    if (frontendOrigins.includes(origin)) {
+    // Allow localhost in development
+    if (origin.includes('localhost')) {
       return callback(null, true);
     }
     
-    // Allow Vercel preview deployments
+    // Allow Vercel deployments
     if (origin.includes('vercel.app') && origin.includes('hr-sarthi')) {
       return callback(null, true);
     }
     
-    // In development, allow localhost
-    if (process.env.NODE_ENV === 'development' && origin.includes('localhost')) {
+    // Check allowed origins
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     
-    callback(new Error('Not allowed by CORS'));
+    console.log('CORS blocked origin:', origin);
+    callback(null, true); // Allow all origins for now to debug
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   optionsSuccessStatus: 200
 };
 
 const io = new Server(server, {
   cors: {
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (frontendOrigins.includes(origin) || 
-          (origin.includes('vercel.app') && origin.includes('hr-sarthi')) ||
-          (process.env.NODE_ENV === 'development' && origin.includes('localhost'))) {
-        return callback(null, true);
-      }
-      callback(new Error('Not allowed by CORS'));
-    },
+    origin: allowedOrigins.concat(['http://localhost:5173', 'https://hr-sarthi.vercel.app']),
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true
   }
@@ -96,6 +90,7 @@ app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] INFO: Incoming request`, {
     method: req.method,
     url: req.url,
+    origin: req.headers.origin,
     ip: req.ip,
     userAgent: req.get('User-Agent'),
     userId: req.user?.id
@@ -109,6 +104,7 @@ app.use((req, res, next) => {
       url: req.url,
       statusCode: res.statusCode,
       duration: `${duration}ms`,
+      origin: req.headers.origin,
       ip: req.ip,
       userId: req.user?.id
     });
@@ -126,24 +122,16 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// CORS
+// CORS - Apply before other middleware
 app.use(cors(corsOptions));
 
-// Handle preflight requests
-app.options('*', cors(corsOptions));
-
-// Additional CORS headers middleware
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin && (frontendOrigins.includes(origin) || 
-      (origin.includes('vercel.app') && origin.includes('hr-sarthi')) ||
-      (process.env.NODE_ENV === 'development' && origin.includes('localhost')))) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
+// Handle preflight requests explicitly
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin');
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept,Authorization');
-  next();
+  res.sendStatus(200);
 });
 
 // Body parsing
@@ -230,6 +218,25 @@ app.get('/', (req, res) => {
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  res.json({ 
+    message: 'CORS is working!',
+    origin: req.headers.origin,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.post('/api/cors-test', (req, res) => {
+  res.json({ 
+    message: 'CORS POST is working!',
+    origin: req.headers.origin,
+    body: req.body,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // API info route

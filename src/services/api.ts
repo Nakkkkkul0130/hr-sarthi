@@ -33,6 +33,7 @@ class ApiService {
     const url = `${API_BASE_URL}${endpoint}`;
     
     const config: RequestInit = {
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...(this.token && { Authorization: `Bearer ${this.token}` }),

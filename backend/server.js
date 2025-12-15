@@ -141,6 +141,21 @@ app.use(express.urlencoded({ extended: true }));
 // Static files
 app.use('/uploads', express.static('uploads'));
 
+// Root route - MUST be before other routes
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'HR SARTHI Backend API', 
+    status: 'Running',
+    version: '1.0.0',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Handle HEAD requests for health checks
+app.head('/', (req, res) => {
+  res.status(200).end();
+});
+
 // Database connection
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
@@ -205,15 +220,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/project-chat', projectChatRoutes);
 app.use('/api/tasks', taskRoutes);
 
-// Root route
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'HR SARTHI Backend API', 
-    status: 'Running',
-    version: '1.0.0',
-    timestamp: new Date().toISOString()
-  });
-});
+
 
 // Health check
 app.get('/api/health', (req, res) => {

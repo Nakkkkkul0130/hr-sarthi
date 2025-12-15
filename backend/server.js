@@ -12,11 +12,13 @@ require('dotenv').config();
 const app = express();
 const server = createServer(app);
 // Build allowed frontend origins from environment.
-// FRONTEND_URLS can be a comma-separated list (e.g. "http://localhost:5173,https://app.example.com").
-const frontendOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || 'http://localhost:5173')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
+const frontendOrigins = [
+  'http://localhost:5173',
+  'https://hr-sarthi.vercel.app',
+  process.env.CORS_ORIGIN,
+  process.env.FRONTEND_URLS,
+  process.env.FRONTEND_URL
+].filter(Boolean).join(',').split(',').map(s => s.trim()).filter(Boolean);
 
 const io = new Server(server, {
   cors: {

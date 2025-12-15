@@ -14,16 +14,56 @@ const server = createServer(app);
 // Build allowed frontend origins from environment.
 const frontendOrigins = [
   'http://localhost:5173',
+  'http://localhost:3000',
   'https://hr-sarthi.vercel.app',
+  'https://hr-sarthi-*.vercel.app',
   process.env.CORS_ORIGIN,
   process.env.FRONTEND_URLS,
   process.env.FRONTEND_URL
 ].filter(Boolean).join(',').split(',').map(s => s.trim()).filter(Boolean);
 
+// In production, allow all Vercel preview deployments
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is in allowed list
+    if (frontendOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Allow Vercel preview deployments
+    if (origin.includes('vercel.app') && origin.includes('hr-sarthi')) {
+      return callback(null, true);
+    }
+    
+    // In development, allow localhost
+    if (process.env.NODE_ENV === 'development' && origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
+};
+
 const io = new Server(server, {
   cors: {
-    origin: frontendOrigins,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (frontendOrigins.includes(origin) || 
+          (origin.includes('vercel.app') && origin.includes('hr-sarthi')) ||
+          (process.env.NODE_ENV === 'development' && origin.includes('localhost'))) {
+        return callback(null, true);
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true
   }
 });
 
@@ -59,10 +99,24 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // CORS
-app.use(cors({
-  origin: frontendOrigins,
-  credentials: true
-}));
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
+
+// Additional CORS headers middleware
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && (frontendOrigins.includes(origin) || 
+      (origin.includes('vercel.app') && origin.includes('hr-sarthi')) ||
+      (process.env.NODE_ENV === 'development' && origin.includes('localhost')))) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept,Authorization');
+  next();
+});
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));

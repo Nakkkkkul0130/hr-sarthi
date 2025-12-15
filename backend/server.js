@@ -89,6 +89,34 @@ const taskRoutes = require('./routes/tasks');
 // Security middleware
 app.use(helmet());
 app.use(compression());
+
+// Enhanced logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  console.log(`[${new Date().toISOString()}] INFO: Incoming request`, {
+    method: req.method,
+    url: req.url,
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    userId: req.user?.id
+  });
+  
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const level = res.statusCode >= 400 ? 'WARN' : 'INFO';
+    console.log(`[${new Date().toISOString()}] ${level}: Request completed`, {
+      method: req.method,
+      url: req.url,
+      statusCode: res.statusCode,
+      duration: `${duration}ms`,
+      ip: req.ip,
+      userId: req.user?.id
+    });
+  });
+  
+  next();
+});
+
 app.use(morgan('combined'));
 
 // Rate limiting
@@ -127,8 +155,13 @@ app.use('/uploads', express.static('uploads'));
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+  .then(() => {
+    console.log(`[${new Date().toISOString()}] INFO: MongoDB connected successfully`, {});
+  })
+  .catch(err => {
+    console.error(`[${new Date().toISOString()}] ERROR: MongoDB connection failed`, { error: err.message });
+    process.exit(1);
+  });
 
 // Socket.IO for real-time features
 io.on('connection', (socket) => {
@@ -184,9 +217,52 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/project-chat', projectChatRoutes);
 app.use('/api/tasks', taskRoutes);
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'HR SARTHI Backend API', 
+    status: 'Running',
+    version: '1.0.0',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// API info route
+app.get('/api', (req, res) => {
+  res.json({
+    message: 'HR SARTHI API',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth',
+      employees: '/api/employees',
+      chat: '/api/chat',
+      wellness: '/api/wellness',
+      helpdesk: '/api/helpdesk',
+      analytics: '/api/analytics',
+      health: '/api/health'
+    }
+  });
+});
+
+// 404 handler for undefined routes
+app.use('*', (req, res) => {
+  res.status(404).json({
+    message: 'Route not found',
+    path: req.originalUrl,
+    method: req.method,
+    availableEndpoints: {
+      root: '/',
+      api: '/api',
+      health: '/api/health',
+      auth: '/api/auth',
+      employees: '/api/employees'
+    }
+  });
 });
 
 // Error handling

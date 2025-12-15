@@ -141,28 +141,35 @@ io.on('connection', (socket) => {
 });
 
 // API Routes
-try {
-  app.use('/api/auth', require('./routes/auth'));
-  app.use('/api/employees', require('./routes/employees'));
-  app.use('/api/chat', require('./routes/chat'));
-  app.use('/api/messages', require('./routes/messages'));
-  app.use('/api/wellness', require('./routes/wellness'));
-  app.use('/api/helpdesk', require('./routes/helpdesk'));
-  app.use('/api/analytics', require('./routes/analytics'));
-  app.use('/api/settings', require('./routes/settings'));
-  app.use('/api/ai', require('./routes/ai'));
-  app.use('/api/ai', require('./routes/chanakya'));
-  app.use('/api/leaves', require('./routes/leaves'));
-  app.use('/api/complaints', require('./routes/complaints'));
-  app.use('/api/payroll', require('./routes/payroll'));
-  app.use('/api/attendance', require('./routes/attendance'));
-  app.use('/api/recruitment', require('./routes/recruitment'));
-  app.use('/api/projects', require('./routes/projects'));
-  app.use('/api/project-chat', require('./routes/projectChat'));
-  app.use('/api/tasks', require('./routes/tasks'));
-} catch (error) {
-  console.log('Some routes may not be available:', error.message);
-}
+const routes = [
+  { path: '/api/auth', file: './routes/auth' },
+  { path: '/api/employees', file: './routes/employees' },
+  { path: '/api/chat', file: './routes/chat' },
+  { path: '/api/messages', file: './routes/messages' },
+  { path: '/api/wellness', file: './routes/wellness' },
+  { path: '/api/helpdesk', file: './routes/helpdesk' },
+  { path: '/api/analytics', file: './routes/analytics' },
+  { path: '/api/settings', file: './routes/settings' },
+  { path: '/api/ai', file: './routes/ai' },
+  { path: '/api/chanakya', file: './routes/chanakya' },
+  { path: '/api/leaves', file: './routes/leaves' },
+  { path: '/api/complaints', file: './routes/complaints' },
+  { path: '/api/payroll', file: './routes/payroll' },
+  { path: '/api/attendance', file: './routes/attendance' },
+  { path: '/api/recruitment', file: './routes/recruitment' },
+  { path: '/api/projects', file: './routes/projects' },
+  { path: '/api/project-chat', file: './routes/projectChat' },
+  { path: '/api/tasks', file: './routes/tasks' }
+];
+
+routes.forEach(({ path, file }) => {
+  try {
+    app.use(path, require(file));
+    console.log(`✓ Loaded route: ${path}`);
+  } catch (error) {
+    console.log(`✗ Failed to load route ${path}:`, error.message);
+  }
+});
 
 // 404 handler
 app.use('*', (req, res) => {

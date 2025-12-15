@@ -7,23 +7,39 @@ const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Test endpoint
+router.get('/test', (req, res) => {
+  res.json({ 
+    message: 'Auth route is working',
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV
+  });
+});
+
 // Register
 router.post('/register', [
-  body('email').isEmail(),
-  body('password').isLength({ min: 6 }),
-  body('firstName').notEmpty(),
-  body('lastName').notEmpty()
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('firstName').notEmpty().withMessage('First name is required'),
+  body('lastName').notEmpty().withMessage('Last name is required')
 ], async (req, res) => {
   try {
+    console.log('Registration attempt:', { email: req.body.email, hasPassword: !!req.body.password });
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      console.log('Validation errors:', errors.array());
+      return res.status(400).json({ 
+        message: 'Validation failed',
+        errors: errors.array() 
+      });
     }
 
     const { firstName, lastName, email, password, position, department } = req.body;
 
     let user = await User.findOne({ email });
     if (user) {
+      console.log('User already exists:', email);
       return res.status(400).json({ message: 'User already exists' });
     }
 
@@ -32,22 +48,27 @@ router.post('/register', [
       lastName,
       email,
       password,
-      position,
-      department
+      position: position || 'Employee',
+      department: department || 'General'
     });
 
     await user.save();
+    console.log('User created successfully:', user._id);
 
-    // Create employee record
-    const employeeId = `EMP${Date.now()}`;
-    const employee = new Employee({
-      user: user._id,
-      employeeId,
-      joinDate: new Date(),
-      salary: 50000 // Default salary
-    });
-
-    await employee.save();
+    // Create employee record if Employee model exists
+    try {
+      const employeeId = `EMP${Date.now()}`;
+      const employee = new Employee({
+        user: user._id,
+        employeeId,
+        joinDate: new Date(),
+        salary: 50000
+      });
+      await employee.save();
+      console.log('Employee record created:', employeeId);
+    } catch (empError) {
+      console.log('Employee creation failed (continuing):', empError.message);
+    }
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRE
@@ -64,36 +85,48 @@ router.post('/register', [
       }
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Registration error:', error);
+    res.status(500).json({ 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
 // Login
 router.post('/login', [
-  body('email').isEmail(),
-  body('password').exists()
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('password').exists().withMessage('Password is required')
 ], async (req, res) => {
   try {
+    console.log('Login attempt:', { email: req.body.email });
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      console.log('Login validation errors:', errors.array());
+      return res.status(400).json({ 
+        message: 'Validation failed',
+        errors: errors.array() 
+      });
     }
 
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
     if (!user) {
+      console.log('User not found:', email);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      console.log('Password mismatch for:', email);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     user.lastLogin = new Date();
     await user.save();
+    console.log('Login successful:', email);
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRE
@@ -110,8 +143,11 @@ router.post('/login', [
       }
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Login error:', error);
+    res.status(500).json({ 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

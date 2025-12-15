@@ -32,6 +32,8 @@ class ApiService {
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
     
+    console.log('API Request:', { url, method: options.method || 'GET' });
+    
     const config: RequestInit = {
       credentials: 'include',
       headers: {
@@ -45,14 +47,27 @@ class ApiService {
     try {
       const response = await fetch(url, config);
       
+      console.log('API Response:', { status: response.status, statusText: response.statusText });
+      
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'API request failed');
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+          console.error('API Error Details:', errorData);
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+        }
+        throw new Error(errorMessage);
       }
 
       return await response.json();
     } catch (error) {
-      console.error('API Error:', error);
+      console.error('API Request Failed:', {
+        url,
+        method: options.method || 'GET',
+        error: error.message
+      });
       throw error;
     }
   }

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>HR SARTHI API Test</h1>
+    <button onclick="testAPI()">Test API Connection</button>
+    <button onclick="testRegister()">Test Registration</button>
+    <div id="results"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        
+        async function testAPI() {
+            const results = document.getElementById('results');
+            results.innerHTML = 'Testing API connection...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/test`);
+                const data = await response.json();
+                results.innerHTML = `<pre>API Test Success: ${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                results.innerHTML = `<pre>API Test Failed: ${error.message}</pre>`;
+            }
+        }
+        
+        async function testRegister() {
+            const results = document.getElementById('results');
+            results.innerHTML = 'Testing registration...';
+            
+            const testUser = {
+                firstName: 'Test',
+                lastName: 'User',
+                email: 'test@example.com',
+                password: 'password123',
+                position: 'Developer',
+                department: 'IT'
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testUser)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    results.innerHTML = `<pre>Registration Success: ${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    results.innerHTML = `<pre>Registration Failed: ${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                results.innerHTML = `<pre>Registration Error: ${error.message}</pre>`;
+            }
+        }
+    </script>
+</body>
+</html>

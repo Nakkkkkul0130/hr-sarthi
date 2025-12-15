@@ -4,8 +4,8 @@ const API_BASE_URL = ENV_API_URL && ENV_API_URL !== ''
   : (typeof window !== 'undefined'
       ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
           ? 'http://localhost:5000/api'
-          : `${window.location.origin}/api`
-      : '/api');
+          : 'https://hr-sarthi-backend.onrender.com/api'
+      : 'https://hr-sarthi-backend.onrender.com/api');
 
 // Helpful debug: show which API base URL is being used in development
 try {
